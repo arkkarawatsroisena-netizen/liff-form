@@ -1,1 +1,0 @@
-const GAS_URL = "วาง_WEB_APP_URL_ของคุณตรงนี้";
