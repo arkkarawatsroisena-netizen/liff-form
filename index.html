@@ -1,1 +1,138 @@
-const GAS_URL = "วาง_WEB_APP_URL_ของคุณตรงนี้";
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>แบบฟอร์มบันทึกข้อมูล</title>
+  <!-- LIFF SDK v2 -->
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <style>
+    * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background-color: #f4f6f8; margin: 0; padding: 20px; color: #333; }
+    .card { background: #fff; border-radius: 12px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); max-width: 450px; margin: 0 auto; }
+    .profile { display: flex; align-items: center; margin-bottom: 20px; padding-bottom: 12px; border-bottom: 1px solid #eee; }
+    .profile img { width: 48px; height: 48px; border-radius: 50%; margin-right: 12px; background: #ddd; }
+    .profile-info { font-size: 14px; }
+    .profile-info strong { display: block; font-size: 16px; color: #111; }
+    .form-group { margin-bottom: 15px; }
+    label { display: block; font-weight: 600; margin-bottom: 6px; font-size: 14px; }
+    input, textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 8px; font-size: 15px; outline: none; }
+    input:focus, textarea:focus { border-color: #06c755; }
+    button { width: 100%; padding: 12px; background-color: #06c755; color: #fff; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; }
+    button:disabled { background-color: #a3e6be; cursor: not-allowed; }
+    .status { text-align: center; font-size: 14px; margin-top: 10px; }
+  </style>
+</head>
+<body>
+
+  <div class="card">
+    <!-- แสดงโปรไฟล์ LINE ของผู้ใช้ -->
+    <div class="profile" id="userProfile">
+      <img id="avatar" src="" alt="Avatar">
+      <div class="profile-info">
+        <span id="userName">กำลังโหลดข้อมูล...</span>
+        <small style="color: #888;">เข้าสู่ระบบด้วย LINE</small>
+      </div>
+    </div>
+
+    <!-- ฟอร์มกรอกข้อมูล -->
+    <form id="dataForm">
+      <div class="form-group">
+        <label for="title">หัวข้อ / เรื่อง</label>
+        <input type="text" id="title" required placeholder="ระบุหัวข้อ">
+      </div>
+
+      <div class="form-group">
+        <label for="detail">รายละเอียด</label>
+        <textarea id="detail" rows="4" required placeholder="กรอกรายละเอียด..."></textarea>
+      </div>
+
+      <button type="submit" id="submitBtn" disabled>กำลังเตรียมระบบ...</button>
+    </form>
+    <div id="statusMsg" class="status"></div>
+  </div>
+
+  <script>
+    // Config ค่าที่เชื่อมต่อ
+    const LIFF_ID = "2011483785-X1sqmZnm"; 
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbwXTQePwD5h-LIXsbIGVTNBLmFJznX5Tf1MVYCzhXRkV3yhk4iC3uSIhAa0b47GrftZ/exec";
+
+    let currentProfile = {};
+
+    async function initLIFF() {
+      try {
+        await liff.init({ liffId: LIFF_ID });
+
+        if (!liff.isLoggedIn()) {
+          liff.login();
+          return;
+        }
+
+        currentProfile = await liff.getProfile();
+        document.getElementById('userName').textContent = currentProfile.displayName;
+        document.getElementById('avatar').src = currentProfile.pictureUrl || 'https://via.placeholder.com/48';
+
+        const submitBtn = document.getElementById('submitBtn');
+        submitBtn.disabled = false;
+        submitBtn.textContent = "บันทึกข้อมูล";
+
+      } catch (err) {
+        console.error("LIFF Init Error:", err);
+        document.getElementById('userName').textContent = "เปิดโหมดทดสอบ (นอก LINE)";
+        document.getElementById('submitBtn').disabled = false;
+        document.getElementById('submitBtn').textContent = "บันทึกข้อมูล";
+      }
+    }
+
+    document.getElementById('dataForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+
+      const submitBtn = document.getElementById('submitBtn');
+      const statusMsg = document.getElementById('statusMsg');
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = "กำลังบันทึก...";
+      statusMsg.textContent = "";
+
+      const payload = {
+        displayName: currentProfile.displayName || "Anonymous",
+        userId: currentProfile.userId || "N/A",
+        title: document.getElementById('title').value,
+        detail: document.getElementById('detail').value
+      };
+
+      try {
+        const res = await fetch(GAS_URL, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify(payload)
+        });
+
+        const result = await res.json();
+
+        if (result.status === "success") {
+          statusMsg.style.color = "#06c755";
+          statusMsg.textContent = "บันทึกข้อมูลสำเร็จเรียบร้อย!";
+          document.getElementById('dataForm').reset();
+
+          if (liff.isInClient()) {
+            setTimeout(() => { liff.closeWindow(); }, 1500);
+          }
+        } else {
+          throw new Error(result.message);
+        }
+
+      } catch (err) {
+        console.error(err);
+        statusMsg.style.color = "#d9534f";
+        statusMsg.textContent = "เกิดข้อผิดพลาดในการบันทึก";
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = "บันทึกข้อมูล";
+      }
+    });
+
+    initLIFF();
+  </script>
+</body>
+</html>
